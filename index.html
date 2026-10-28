@@ -1,74 +1,25 @@
 <!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Amigo Invisible 🎄</title>
 <style>
-:root{--red:#b32632;--green:#155c43;--cream:#fffaf0;--gold:#e5b95c}
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#0d4737,#102f2b);color:#20342d;font-family:system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh;padding:22px}
-main{max-width:760px;margin:auto}.hero{text-align:center;color:#fff;margin:8px 0 22px}.hero h1{font-size:clamp(2rem,7vw,3.2rem);margin:0}.hero p{margin:8px 0;color:#e7f1e9}
-.panel{background:var(--cream);border-radius:22px;padding:clamp(18px,4vw,30px);box-shadow:0 15px 45px #0003;margin-bottom:18px}
-h2{margin:0 0 14px;color:var(--green)}label{font-weight:650;display:block;margin:12px 0 6px}
-input,textarea,button{font:inherit}input,textarea{width:100%;padding:12px;border:1px solid #c9d6cc;border-radius:10px;background:#fff}textarea{min-height:100px;resize:vertical}
-button{border:0;border-radius:12px;padding:12px 16px;background:var(--red);color:white;font-weight:750;cursor:pointer;margin:8px 6px 0 0}button.secondary{background:var(--green)}button.light{background:#e8efe9;color:var(--green)}.muted{color:#617067;font-size:.92rem}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.hidden{display:none}.person{display:flex;gap:8px;align-items:center;margin:8px 0}.person input{flex:1}.result{background:#eaf3eb;padding:14px;border-radius:12px;margin:10px 0;overflow-wrap:anywhere}.error{color:#a01624;font-weight:650}.success{color:#155c43;font-weight:650}footer{text-align:center;color:#dce9df;font-size:.85rem;padding:8px}
-@media(max-width:520px){.row{grid-template-columns:1fr}body{padding:12px}}
-</style>
-</head>
-<body><main>
-<header class="hero"><div style="font-size:2rem">🎄 ❄️ 🎁</div><h1>Amigo Invisible</h1><p>Un sorteo secreto para compartir la magia de la Navidad</p></header>
-<section class="panel" id="setup">
-<h2>🎁 Crear un sorteo</h2>
-<p class="muted">Añade los nombres, las parejas que no deben tocarse y pulsa crear. El sistema te dará un enlace privado de administración y un enlace por persona.</p>
-<div class="row"><div><label for="title">Nombre del sorteo</label><input id="title" value="Amigo Invisible Navidad"></div><div><label for="budget">Presupuesto (€) (opcional)</label><input id="budget" placeholder="Ej. 20" inputmode="decimal"></div></div>
-<label for="date">Fecha de entrega (opcional)</label><input id="date" placeholder="Ej. 24 de diciembre">
-<label for="names">Participantes (uno por línea)</label><textarea id="names" placeholder="Patricia&#10;Nico&#10;Daniela&#10;Iván"></textarea>
-<label for="restrictions">Parejas o restricciones (una por línea, separadas por coma)</label><textarea id="restrictions" placeholder="Patricia, Nico&#10;Ana, Luis"></textarea>
-<p class="muted">Las restricciones son recíprocas: si escribes «Ana, Luis», ni Ana puede regalar a Luis ni Luis a Ana. Todos deben tener un nombre único.</p>
-<button id="create">Crear sorteo y generar enlaces</button><div id="status" role="status"></div>
-</section>
-<section class="panel hidden" id="admin"><h2>🔐 Enlaces privados</h2><p class="muted">Guarda el enlace de administración. Quien tenga este enlace podrá ver todos los enlaces individuales; no lo compartas con los participantes.</p><div id="adminInfo" class="result"></div><div id="links"></div><button class="secondary" id="copyAll">Copiar todos los mensajes</button><button class="light" id="new">Crear otro sorteo</button></section>
-<section class="panel hidden" id="reveal"><h2>🎅 Tu amigo invisible</h2><p id="greeting"></p><div id="recipient" class="result"></div><p class="muted" id="details"></p><p class="muted">¡Guarda el secreto! 🤫</p></section>
-<footer>Hecho con espíritu navideño ✨</footer></main>
-<script>
-const $=id=>document.getElementById(id);
-const params=new URLSearchParams(location.search);
-const enc=s=>encodeURIComponent(s);
-function showError(msg){$('status').innerHTML='<p class="error">'+msg+'</p>'}
-function parseLines(v){return v.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)}
-function shuffled(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function makeDraw(names,blocked){
-  // Randomized backtracking assignment; each person receives one unique recipient.
-  const order=shuffled(names.slice()).sort((a,b)=>allowed(a).length-allowed(b).length);
-  const assigned={},used=new Set();
-  function allowed(giver){return shuffled(names.filter(n=>n!==giver&&!blocked.has(giver+'|'+n)&&!used.has(n)))}
-  function dfs(i){
-    if(i===order.length)return true;
-    const giver=order[i];
-    for(const recipient of allowed(giver)){assigned[giver]=recipient;used.add(recipient);if(dfs(i+1))return true;used.delete(recipient);delete assigned[giver]}
-    return false;
-  }
-  return dfs(0)?assigned:null;
-}
-function renderLinks(data){
- $('setup').classList.add('hidden');$('reveal').classList.add('hidden');$('admin').classList.remove('hidden');
- const origin=location.href.split('?')[0].split('#')[0];
- $('adminInfo').innerHTML='<strong>'+data.title+'</strong><br>Participantes: '+data.names.length+(data.budget?' · Presupuesto: '+data.budget+' €':'')+(data.date?' · Entrega: '+data.date:'')+'<br><span class="muted">En esta versión local, los enlaces son demostrativos y no se guardan en un servidor.</span>';
- $('links').innerHTML=''; let all=[];
- data.names.forEach((name,i)=>{const url=origin+'?demo='+enc(btoa(unescape(encodeURIComponent(JSON.stringify({name,recipient:data.draw[name],title:data.title,budget:data.budget,date:data.date})))));const msg='¡Hola '+name+'! 🎄 Tu amigo invisible ya está listo. Descúbrelo aquí: '+url;
- const div=document.createElement('div');div.className='result';const strong=document.createElement('strong');strong.textContent='Para '+name;const p=document.createElement('p');p.textContent='Enlace privado de prueba: '+url;const b=document.createElement('button');b.textContent='Compartir por WhatsApp';b.onclick=()=>location.href='https://wa.me/?text='+enc(msg);const c=document.createElement('button');c.className='light';c.textContent='Copiar enlace';c.onclick=()=>navigator.clipboard.writeText(url).then(()=>c.textContent='¡Copiado!');div.append(strong,p,b,c);$('links').append(div);all.push(msg)});
- $('copyAll').onclick=()=>navigator.clipboard.writeText(all.join('\n\n')).then(()=>$('copyAll').textContent='¡Mensajes copiados!');
-}
-function showReveal(obj){$('setup').classList.add('hidden');$('admin').classList.add('hidden');$('reveal').classList.remove('hidden');$('greeting').textContent='Hola, '+obj.name+' 🎁';$('recipient').textContent='Te ha tocado: '+obj.recipient;$('details').textContent=(obj.title||'Amigo Invisible')+(obj.budget?' · Presupuesto: '+obj.budget+' €':'')+(obj.date?' · Entrega: '+obj.date:'')}
-if(params.has('demo')){try{showReveal(JSON.parse(decodeURIComponent(escape(atob(params.get('demo'))))))}catch(e){showError('El enlace no es válido.')}} 
-$('create').onclick=()=>{
- const names=parseLines($('names').value), lines=parseLines($('restrictions').value), title=$('title').value.trim()||'Amigo Invisible Navidad';
- if(names.length<2){showError('Añade al menos dos participantes.');return}
- if(new Set(names.map(n=>n.toLocaleLowerCase('es'))).size!==names.length){showError('Cada participante debe tener un nombre único.');return}
- const blocked=new Set();
- for(const line of lines){const parts=line.split(',').map(x=>x.trim());if(parts.length!==2||!names.includes(parts[0])||!names.includes(parts[1])||parts[0]===parts[1]){showError('Revisa esta restricción: «'+line+'». Debe contener dos nombres exactos de la lista.');return}blocked.add(parts[0]+'|'+parts[1]);blocked.add(parts[1]+'|'+parts[0])}
- $('status').textContent='Buscando un reparto válido…';
- const draw=makeDraw(names,blocked);if(!draw){showError('No existe un reparto posible con estas restricciones. Prueba a quitar alguna.');return}
- renderLinks({names,draw,title,budget:$('budget').value.trim(),date:$('date').value.trim()});
-};
-$('new').onclick=()=>location.href=location.href.split('?')[0];
+:root{color-scheme:light}body{margin:0;background:#124b35;font:16px system-ui;color:#20372a}main{max-width:720px;margin:auto;padding:16px}.hero{text-align:center;color:white;padding:24px 8px}.card{background:#fffaf0;border-radius:18px;padding:18px;margin:14px 0}h1{font-size:2.3rem;margin:0}h2{color:#124b35}label{display:block;font-weight:700;margin-top:12px}input,textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #bdcdbf;border-radius:10px;font:inherit}textarea{min-height:120px}button{width:100%;padding:13px;margin-top:12px;border:0;border-radius:10px;background:#b6283b;color:white;font-weight:700;font:inherit}.green{background:#124b35}.hint{font-size:.9rem;line-height:1.4}.warn{background:#fff0d5;padding:12px;border-radius:9px}.person{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}.hidden{display:none}.link{border-top:1px solid #ddd;padding:12px 0;overflow-wrap:anywhere}
+</style></head><body><main>
+<header class="hero"><div>🎄 ✨ 🎁 ✨ 🎄</div><h1>Amigo Invisible</h1><p>Un detalle, una sorpresa y mucha ilusión</p></header>
+<section class="card"><h2>⚙️ Configura tu sorteo</h2>
+<p class="warn">La URL y la clave pública de Supabase se usarán también en los enlaces privados. La clave pública no es la contraseña de administrador.</p>
+<label>Supabase API URL</label><input id="url" placeholder="https://tu-proyecto.supabase.co">
+<label>Clave pública (publishable o anon)</label><input id="key" placeholder="Clave pública de Supabase">
+<label>Contraseña de administrador</label><input id="admin" type="password" placeholder="Contraseña configurada en Supabase">
+<label>Nombre del sorteo</label><input id="draw" value="Amigo Invisible de Navidad">
+<label>Participantes (un nombre por línea)</label><textarea id="names" placeholder="Nico&#10;Patricia&#10;Daniela"></textarea>
+<p class="hint">En “Grupo de exclusión”, escribe el mismo texto para las personas que no deben tocarse entre sí (por ejemplo, pareja1 para los dos miembros de una pareja). Deja vacío para el resto.</p>
+<button class="green" id="prep">Preparar participantes</button><div id="people"></div><button id="go" class="hidden">Crear sorteo y generar enlaces privados</button><p id="status" class="hint"></p><div id="links"></div></section>
+<section class="card"><h2>🔐 Tu resultado</h2><div id="result" class="hint">Si has recibido un enlace privado, ábrelo para consultar a quién te ha tocado.</div></section>
+</main><script>
+const $=id=>document.getElementById(id);let ps=[];
+function say(s){$('status').textContent=s}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+$('prep').onclick=()=>{let ns=$('names').value.split(/\n/).map(x=>x.trim()).filter(Boolean);if(ns.length<3){say('Añade al menos 3 participantes.');return}if(new Set(ns.map(x=>x.toLocaleLowerCase('es'))).size!==ns.length){say('Hay nombres repetidos.');return}ps=ns.map(name=>({name,group:''}));$('people').innerHTML='<h3>Grupos de exclusión</h3>'+ps.map((p,i)=>`<div class="person"><input value="${esc(p.name)}" readonly><input data-g="${i}" placeholder="Grupo (ej. pareja1)"></div>`).join('');$('go').classList.remove('hidden');say('Revisa los grupos y crea el sorteo cuando esté todo correcto.')};
+$('go').onclick=async()=>{let url=$('url').value.trim().replace(/\/+$/,''),key=$('key').value.trim(),admin=$('admin').value;if(!/^https:\/\/.+/.test(url)||!key||!admin){say('Completa la URL HTTPS, la clave pública y la contraseña de administrador.');return}ps=ps.map((p,i)=>({...p,group:document.querySelector(`[data-g="${i}"]`).value.trim()}));$('go').disabled=true;say('Creando sorteo…');try{let r=await fetch(url+'/rest/v1/rpc/create_secret_draw',{method:'POST',headers:{'Content-Type':'application/json','apikey':key,'Authorization':'Bearer '+key},body:JSON.stringify({p_admin_key:admin,p_draw_name:$('draw').value,p_people:ps})});let d=await r.json();if(!r.ok)throw Error(d.message||'Error al crear sorteo');if(!d.participants||!Array.isArray(d.participants))throw Error('Respuesta inesperada de Supabase');let base=location.origin+location.pathname,out='<h3>Enlaces privados</h3><p class="warn">Guarda esta lista ahora y no la publiques. Cada enlace permite consultar un resultado personal. No cierres la página hasta guardar los enlaces.</p>';for(let p of d.participants){let link=base+'?token='+encodeURIComponent(p.token)+'&api='+encodeURIComponent(url)+'&key='+encodeURIComponent(key),msg=`¡Hola ${p.name}! 🎄 Ya está listo el Amigo Invisible. Este es tu enlace privado: ${link}`;out+=`<div class="link"><b>${esc(p.name)}</b><br><a href="${esc(link)}" target="_blank" rel="noopener">Abrir enlace privado</a><button class="green" data-msg="${esc(msg)}">Compartir por WhatsApp</button></div>`}$('links').innerHTML=out;$('links').querySelectorAll('button[data-msg]').forEach(b=>b.onclick=()=>{location.href='https://wa.me/?text='+encodeURIComponent(b.dataset.msg)});$('admin').value='';say('Sorteo creado. Guarda y comparte cada enlace con su participante.')}catch(e){say('Error: '+e.message+'. No repitas el sorteo hasta comprobar si se creó correctamente.')}finally{$('go').disabled=false}};
+(async()=>{let params=new URLSearchParams(location.search),t=params.get('token');if(!t)return;let url=params.get('api'),key=params.get('key');if(!url||!key){$('result').textContent='El enlace no está completo. Pide al organizador que te envíe el enlace privado generado por la aplicación.';return}$('result').textContent='Consultando tu resultado…';try{const bytes=new TextEncoder().encode(t);const digest=await crypto.subtle.digest('SHA-256',bytes);const tokenHash=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');let r=await fetch(url+'/rest/v1/rpc/get_my_assignment',{method:'POST',headers:{'Content-Type':'application/json','apikey':key,'Authorization':'Bearer '+key},body:JSON.stringify({p_token_hash:tokenHash})});let d=await r.json();if(!r.ok)throw Error('No se pudo consultar');let x=Array.isArray(d)?d[0]:null;$('result').textContent=x?`🎁 ${x.participant_name}, te toca regalar a ${x.recipient_name}`:'Enlace no válido o sorteo no disponible.'}catch(e){$('result').textContent='No se pudo consultar el resultado. Pide al organizador que revise la configuración.'}})();
 </script></body></html>
